@@ -122,7 +122,7 @@ scheduler.prototype.doSchedule = function () {
   var scheduler = this;
   scheduler.schedule_version = (new Date()).getTime();
   var redis_cli = scheduler.drillerInfoRedis;
-  redis_cli.llen('queue:scheduled:all', function (err, queue_length) {
+  redis_cli.llen(`queue:scheduled:${scheduler.settings['instance']}`, function (err, queue_length) {
     if (err)throw(err);
     var balance = scheduler.settings['schedule_quantity_limitation'] - queue_length;
     if (balance < 0)balance = 0;
@@ -183,7 +183,7 @@ scheduler.prototype.reSchedule = function (driller, index) {
     (function (link) {
       scheduler.updateLinkState(link, 'schedule', scheduler.schedule_version, function (bol) {
         if (bol) {
-          scheduler.drillerInfoRedis.rpush('queue:scheduled:all', link, function (err, value) {
+          scheduler.drillerInfoRedis.rpush(`queue:scheduled:${scheduler.settings['instance']}`, link, function (err, value) {
             logger.info('reschedule url: ' + link);
           });
         } else {
@@ -413,7 +413,7 @@ scheduler.prototype.checkURL = function (url, interval, callback) {
 
     scheduler.updateLinkState(url, 'schedule', false, function (bol) {
       if (bol) {
-        drillerInfoRedis.rpush('queue:scheduled:all', url, function (err, value) {
+        drillerInfoRedis.rpush(`queue:scheduled:${scheduler.settings['instance']}`, url, function (err, value) {
           if (err) {
             logger.warn('Append ' + url + ' to queue failure');
             return callback(false);

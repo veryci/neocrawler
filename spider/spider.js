@@ -154,7 +154,7 @@ spider.prototype.getUrlQueue = function (callback) {
   var spider = this;
   var drillerInfoRedis = this.drillerInfoRedis;
   var urlInfoRedis = this.urlInfoRedis;
-  drillerInfoRedis.lpop('queue:scheduled:all', function (err, link) {
+  drillerInfoRedis.lpop(`queue:scheduled:${spider.settings['instance']}`, function (err, link) {
     //2----------------------------------------------------------------------------------------
     if (!link) {
       logger.info(`No candidate queue, ${spider.queue_length} urls in crawling.`);

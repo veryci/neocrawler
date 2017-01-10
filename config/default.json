@@ -16,6 +16,8 @@
     "keep_link_relation": false
   },
   "mongodb": {
+    "exampleDB":"localhost/crawled",
+    "exampleCollection": "result"
   },
   "redis": {
     "drillerInfo": "redis://127.0.0.1:6379/0",
@@ -24,6 +26,10 @@
     "proxyInfo": "redis://127.0.0.1:6379/3"
   },
   "elasticSearch": {
+    "host": "sindex",
+    "index": "sindex",
+    "type": "page",
+    "logLevel": "info"
   },
   "hbase": {
     "hosts": [
@@ -31,9 +37,5 @@
     ],
     "crawledTable": "crawled",
     "crawledBinTable": "crawled_bin"
-  },
-  "instance": {
-    "example": {
-    }
   }
 }
