@@ -1,3 +1,6 @@
 [submodule "instance"]
 	path = instance
 	url = git@github.com:veryci/neocrawler-instance.git
+[submodule "webconfig"]
+	path = webconfig
+	url = git@github.com:veryci/neocrawler-web.git
