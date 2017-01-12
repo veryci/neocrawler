@@ -408,6 +408,10 @@ pipeline.prototype.save =function(extracted_info,callback){
                 if (err)throw err;
                 logger.debug('Content saved, '+htmlfile);
                 delete extracted_info['content'];
+                delete extracted_info['page'];
+                delete extracted_info['phantom'];
+
+                console.dir(extracted_info)
                 fs.writeFile(resultfile,JSON.stringify(extracted_info),'utf8',function(err){
                     if (err)throw err;
                     logger.debug('Crawling result saved, '+resultfile);

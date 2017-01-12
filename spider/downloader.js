@@ -20,12 +20,12 @@ var CMD_SIGNAL_CRAWL_SUCCESS = 1;
 var CMD_SIGNAL_CRAWL_FAIL = 3;
 var CMD_SIGNAL_NAVIGATE_EXCEPTION = 2;
 
-var downloader = function(spiderCore){
-    events.EventEmitter.call(this);//eventemitter inherits
-    this.spiderCore = spiderCore;
-    this.proxyList = [];
-    this.timeout_count = 0;
-    logger = spiderCore.settings.logger;
+var downloader = function (spiderCore) {
+  events.EventEmitter.call(this);//eventemitter inherits
+  this.spiderCore = spiderCore;
+  this.proxyList = [];
+  this.timeout_count = 0;
+  logger = spiderCore.settings.logger;
 }
 
 util.inherits(downloader, events.EventEmitter);//eventemitter inherits
@@ -110,9 +110,12 @@ downloader.prototype.getProxyListFromDb = function(label){
 
 ////download action/////////////////////
 downloader.prototype.download = function (urlinfo){
-    if(urlinfo['jshandle'])this.browseIt(urlinfo);
-    else this.downloadIt(urlinfo);
-}
+  if (urlinfo['jshandle']) {
+    this.browseIt(urlinfo);
+  } else {
+    this.downloadIt(urlinfo);
+  }
+};
 
 downloader.prototype.transCookieKvPair = function(json){
     var kvarray = [];
@@ -137,7 +140,7 @@ downloader.prototype.downloadItAct = function(urlinfo){
     if(urlinfo['urllib']&&spiderCore.settings['use_proxy']===true){
         if(spiderCore.spider.getDrillerRule(urlinfo['urllib'],'use_proxy')===true)useProxy=true;
     }
-    
+
     var urlobj = urlUtil.parse(pageLink);
     if(useProxy){
         var proxyRouter = spiderCore.settings['proxy_router'].split(':');
@@ -311,129 +314,73 @@ downloader.prototype.downloadIt = function(urlinfo){
  */
 downloader.prototype.browseIt = function(urlinfo){
     var spiderCore = this.spiderCore;
-    var browserTimeouter = false;
-    if(this.spiderCore.settings['test']){
-        urlinfo['test'] = true;
-        urlinfo['ipath'] = path.join(__dirname,'..', 'instance',this.spiderCore.settings['instance'],'logs');
+  var phantom = require('phantom');
+
+  let pInstance;
+  let pPage;
+  const result = {
+    "drill_count": 0,
+    "cookie": [],
+    "url": urlinfo["url"],
+    "statusCode": 0,
+    "origin": urlinfo,
+    "cost": 0,
+    "content": ''
+  };
+  const start = Date.now();
+  phantom.create(['--disk-cache=true','--ignore-ssl-errors=true', '--load-images=true','--web-security=true']).then(instance => {
+    pInstance = instance;
+    return instance.createPage();
+  }).then(page => {
+    pPage = page;
+    page.on('onResourceReceived', function (response) {
+      if (response.stage !== "end" || response.url != urlinfo["url"]) return;
+      result["statusCode"] = response.status;
+    });
+    page.on('onResourceTimeout', function (request) {
+      logger.error(request);
+      logger.error('Cost ' + Date.now() - start + 'ms browser timeout, ' + urlinfo['url']);
+      spiderCore.emit('crawling_failure', urlinfo, 'browser timeout');
+      page.close();
+      pInstance.exit();
+    });
+    page.on('onResourceError', function (resourceError) {
+      logger.error(urlinfo["url"] + ' resource load fail');
+      logger.info('Unable to load resource (#' + resourceError.id + 'URL:' + resourceError.url + ')');
+      logger.info('Error code: ' + resourceError.errorCode + '. Description: ' + resourceError.errorString);
+      // spiderCore.emit('crawling_failure', urlinfo, 'phantomjs unknown failure');
+      // page.close();
+      // pInstance.exit();
+    });
+    page.on('onError', function (msg, trace) {
+      var msgStack = ['ERROR: ' + msg];
+      if (trace && trace.length) {
+        msgStack.push('TRACE:');
+        trace.forEach(function (t) {
+          msgStack.push(' -> ' + t.file + ': ' + t.line + (t.function ? ' (in function "' + t.function + '")' : ''));
+        });
+      }
+      logger.error(msgStack.join('\n'));
+      // page.close();
+      // pInstance.exit();
+    });
+    return page.open(urlinfo['url'], {resourceTimeout: spiderCore.settings['download_timeout'] * 1000})
+  }).then(function (status) {
+    if (status == 'suceess') {
+      result["statusCode"] = 200;
     }
-    var useProxy = false;
-    if(urlinfo['urllib']&&spiderCore.settings['use_proxy']===true){
-        if(spiderCore.spider.getDrillerRule(urlinfo['urllib'],'use_proxy')===true)useProxy=true;
-    }
-    var browserStart = new Date();
-    if(useProxy){
-        var phantomjs = child_process.spawn('./phantomjs', [
-            '--proxy', this.spiderCore.settings['proxy_router'],
-            '--load-images', 'false',
-            '--local-to-remote-url-access','true',
-            //'--cookies-file',path.join(__dirname,'..', 'instance',this.spiderCore.settings['instance'],'logs','cookies.log'),
-            'phantomjs-bridge.js',
-            JSON.stringify(urlinfo)],
-            {'cwd':path.join(__dirname,'..', 'lib','phantomjs'),
-                'stdio':'pipe'}
-        );
-    }else{
-        var phantomjs = child_process.spawn('./phantomjs', [
-            '--load-images', 'false',
-            '--local-to-remote-url-access','true',
-            //'--cookies-file',path.join(__dirname,'..', 'instance',this.spiderCore.settings['instance'],'logs','cookies.log'),
-            'phantomjs-bridge.js',
-            JSON.stringify(urlinfo)],
-            {'cwd':path.join(__dirname,'..', 'lib','phantomjs'),
-                'stdio':'pipe'}
-        );
-    }
-
-    phantomjs.stdin.setEncoding('utf8');
-    phantomjs.stdout.setEncoding('utf8');
-
-    phantomjs.on('error',function(err){
-        logger.error('phantomjs error: '+err);
-        phantomjs.kill();
-        if(browserTimeouter){
-            clearTimeout(browserTimeouter);
-            browserTimeouter = false;
-        }
-    });
-
-    var feedback = '';
-    phantomjs.stdout.on('data', function(data) {
-        data = data.trim();
-        if(feedback==''&&!data.startsWith('{')){
-            logger.warn('phantomjs: '+data);
-            spiderCore.emit('crawling_failure',urlinfo,'data do not startsWith { .');
-            phantomjs.kill();
-        }else{
-            feedback += data;
-            if(data.endsWith('}#^_^#')){
-                var emit_string = feedback.slice(0,-5);
-                feedback = '';
-                phantomjs.emit('feedback',emit_string);
-            }
-        }
-    });
-
-    phantomjs.on('feedback', function(data) {
-        try{
-            var feedback = JSON.parse(data);//data.toString('utf8')
-        }catch(e){
-            logger.error(util.format('Page content parse error: %s',e));
-            spiderCore.emit('crawling_break',urlinfo,e.message);
-            phantomjs.kill();
-            return;
-        }
-        switch(feedback['signal']){
-            case CMD_SIGNAL_CRAWL_SUCCESS:
-                spiderCore.emit('crawled',feedback);
-                phantomjs.kill();
-                break;
-            case CMD_SIGNAL_CRAWL_FAIL:
-                logger.error(feedback.url+' crawled fail');
-                spiderCore.emit('crawling_failure',urlinfo,'phantomjs crawl failure');
-                phantomjs.kill();
-                break;
-            case CMD_SIGNAL_NAVIGATE_EXCEPTION:
-                logger.error(feedback.url+' navigate fail');
-                spiderCore.emit('crawling_failure',urlinfo,'phantomjs navigate failure');
-                phantomjs.kill();
-                break;
-            default:
-                logger.debug('Phantomjs: '+data);
-                spiderCore.emit('crawling_failure',urlinfo,'phantomjs unknown failure');
-                phantomjs.kill();
-        }
-        if(browserTimeouter){
-            clearTimeout(browserTimeouter);
-            browserTimeouter = false;
-        }
-    });
-
-    browserTimeouter = setTimeout(function(){
-        if(phantomjs){
-            logger.error('Cost '+((new Date())-browserStart)+'ms browser timeout, '+urlinfo['url']);
-            phantomjs.kill();
-            phantomjs=null;
-            spiderCore.emit('crawling_failure',urlinfo,'browser timeout');
-        }
-    },spiderCore.settings['download_timeout']*1000);
-
-    phantomjs.stderr.on('data', function (data) {
-        logger.error('phantomjs stderr: '+data.toString('utf8'));
-        phantomjs.kill();
-        if(browserTimeouter){
-            clearTimeout(browserTimeouter);
-            browserTimeouter = false;
-        }
-    });
-
-    phantomjs.on('exit', function (code) {
-        if(code!=0)logger.error('child process exited with code ' + code);
-    });
-
-    phantomjs.on('close', function (signal) {
-        if(signal!=0)logger.error('child process closed with signal ' + signal);
-    });
-
-}
+    result["cost"] = Date.now() - start;
+    return Promise.all([pPage.property('content'), pPage.property('cookies')]);
+  }).then(function ([content, cookies]) {
+    result["content"] = content;
+    result["cookies"] = cookies;
+    result["page"] = pPage;
+    result["phantom"] = pInstance;
+    spiderCore.emit('crawled', result);
+  }).catch(error => {
+    logger.error('phantomjs stderr: ' + error);
+    pInstance.exit();
+  });
+};
 ////////////////////////////////////////
 module.exports = downloader;

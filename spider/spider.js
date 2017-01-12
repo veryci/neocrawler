@@ -281,7 +281,7 @@ spider.prototype.detectLink = function (link) {
       var url_pattern = alias[current_rule]['url_pattern'];
       var patt = new RegExp(url_pattern);
       if (patt.test(link)) {
-        result = 'driller:' + domain + ':' + current_rule;
+        result = `driller:${this.spiderCore.settings['instance']}:${domain}:${current_rule}`;
         break;
       }
     }
