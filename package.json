@@ -37,6 +37,8 @@
     "mongodb": "^2.1.4",
     "mysql": "2.0.0",
     "optimist": "0.6.0",
+    "phantom": "^4.0.0",
+    "phantom-pool": "^1.1.0",
     "protobufjs": "^2.2.1",
     "readable-stream": "^1.0.26-4",
     "redis": ">=0.12.1",

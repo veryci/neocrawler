@@ -55,14 +55,12 @@ spiderCore.prototype.start = function () {
   var spiderCore = this;
   //when get a new url from candidate queue
   this.on('new_url_queue', function (urlinfo) {
-    console.log(1111)
     this.spider.updateLinkState(urlinfo['url'], 'crawling');
     this.downloader.download(urlinfo);
     if ('crawl_start_alert' in spiderCore.spider_extend) spiderCore.spider_extend.crawl_start_alert(urlinfo);
   });
   //when downloading is finish
   this.on('crawled', function (crawled_info) {
-    console.log(22222)
     logger.info('crawl ' + crawled_info['url'] + ' finish, proxy:' + crawled_info['remote_proxy'] + ', cost:' + ((new Date()).getTime() - parseInt(crawled_info['origin']['start_time'])) + 'ms');
     if (this.extractor.validateContent(crawled_info)) {
       //if(crawled_info['content'].length<500)logger.warn(util.format('Strange content, length:%s, url:%s',crawled_info['content'].length,crawled_info['url']));
@@ -74,6 +72,8 @@ spiderCore.prototype.start = function () {
               spiderCore.spider_extend.extract(extracted_info, function (new_extracted_info) {
                 extracted_info = new_extracted_info;
                 callback();
+                crawled_info.page.close();
+                crawled_info.phantom.exit();
               });//spider extend
             } else callback();
           },
@@ -105,19 +105,11 @@ spiderCore.prototype.start = function () {
   });
   //when downloading is failure
   this.on('crawling_failure', function (urlinfo, err_msg) {
-    console.log(333333)
     logger.warn(util.format('Crawling failure: %s, reason: %s', urlinfo['url'], err_msg));
-    this.spider.retryCrawl(urlinfo);
-  });
-  //when downloading is break
-  this.on('crawling_break', function (urlinfo, err_msg) {
-    console.log(44444)
-    logger.warn(util.format('Crawling break: %s, reason: %s', urlinfo['url'], err_msg));
     this.spider.retryCrawl(urlinfo);
   });
   //pop a finished url, append a new url
   this.on('slide_queue', function () {
-    console.log(55555)
     var spiderCore = this;
     setTimeout(function () {
       if (spiderCore.spider.queue_length > 0) spiderCore.spider.queue_length--;
@@ -126,7 +118,6 @@ spiderCore.prototype.start = function () {
   });
   //once driller reles loaded
   this.once('driller_rules_loaded', function (rules) {
-    console.log(6666)
     this.emit('slide_queue');
     var spiderIns = this.spider;
     setInterval(function () {

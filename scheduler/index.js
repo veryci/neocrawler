@@ -60,13 +60,11 @@ scheduler.prototype.refreshPriotities = function () {
       logger.debug('driller rules is changed');
       const keys = yield redis_cli.keys(`driller:${scheduler.settings['instance']}:*`);
 
-      console.log(111111111,keys)
       scheduler.tmp_driller_rules = {};
       scheduler.tmp_priority_list = [];
       scheduler.tmp_total_rates = 0;
       scheduler.tmp_priotites_length = keys.length;
       for (let key of keys) {
-        console.log(222222,key)
         let value = yield redis_cli.get(key);
         value = JSON.parse(value);
         if (scheduler.tmp_priotities == undefined)scheduler.tmp_priotities = {'items': {}, nums: []};
@@ -305,7 +303,6 @@ scheduler.prototype.detectLink = function (link) {
       }
     }
   }
-  console.log(55555,result)
   return result;
 }
 /**
@@ -319,7 +316,6 @@ scheduler.prototype.transformLink = function (link, urllib) {
   var urlobj = urlUtil.parse(link);
   var domain = this.__getTopLevelDomain(urlobj['hostname']);
   var drill_alias = urllib.slice(urllib.lastIndexOf(':') + 1);
-  console.log(4444444,domain,drill_alias)
   if (this.driller_rules[domain] && this.driller_rules[domain][drill_alias]) {
     var driller_rule = this.driller_rules[domain][drill_alias];
     if (typeof(driller_rule) != 'object')driller_rule = JSON.parse(driller_rule);

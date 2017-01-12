@@ -80,7 +80,7 @@ settings["crawled_hbase_bin_table"] = hbaseSettingFromConfig['crawledBinTable'] 
 
 ////crawling action///////////////////////////////////////////////////////////
 var crawling = function () {
-  const logger = log4js.getLogger(`spider${options['i']}`);
+  const logger = log4js.getLogger(`spider-${options['i']}`);
   logger.setLevel(settings['log_level']);
   settings['logger'] = logger;
   var spider = new (require('./spider'))(settings);
@@ -89,7 +89,7 @@ var crawling = function () {
 
 ////proxy Service////////////////////////////////////////////////////////////
 var proxyService = function () {
-  var logger = log4js.getLogger(`proxy-service${options['i']}`);
+  var logger = log4js.getLogger(`proxy-service-${options['i']}`);
   settings['logger'] = logger;
   settings['port'] = parseInt(options['p']);
   var proxyRouter = new (require('./proxyrouter'))(settings);
@@ -98,16 +98,17 @@ var proxyService = function () {
 }
 ////config service////////////////////////////////////////////////////////////
 var configService = function () {
-  var logger = log4js.getLogger(`config-service${options['i']}`);
-  settings['logger'] = logger;
-  settings['port'] = parseInt(options['p']);
-  var webConfig = new (require('./webconfig'))(settings);
+  var logger = log4js.getLogger(`config-service-${options['i']}`);
+  // settings['logger'] = logger;
+  // settings['port'] = parseInt(options['p']);
+  require('./webconfig/app');
+  // var webConfig = new (require('./webconfig/app'))(settings);
 
-  webConfig.start();
+  // webConfig.start();
 }
 ////scheduler///////////////////////////////////////////////////////////////
 var schedule = function () {
-  var logger = log4js.getLogger(`schedule${options['i']}`);
+  var logger = log4js.getLogger(`scheduler-${options['i']}`);
   settings['logger'] = logger;
   var scheduler = new (require('./scheduler'))(settings);
 
@@ -117,7 +118,7 @@ var schedule = function () {
 ////test url/////////////////////////////////////////////////////////////////
 var testUrl = function () {
   if (options['l'] != '') {
-    var logger = logging.getLogger(`crawling-testing${options['i']}`);
+    var logger = log4js.getLogger(`crawling-testing-${options['i']}`);
     settings['logger'] = logger;
     settings['test'] = true;
     settings['use_proxy'] = false;
@@ -126,6 +127,10 @@ var testUrl = function () {
     spider.test(options['l']);
   }
 }
+
+const load = () => {
+  require('./tool').load(settings);
+};
 
 ////route/////////////////////////////////////////////////////////////////////
 switch (options['a']) {
@@ -143,6 +148,9 @@ switch (options['a']) {
     break;
   case 'test':
     testUrl();
+    break;
+  case 'load':
+    load();
     break;
   default:
     userArgv.showHelp();
