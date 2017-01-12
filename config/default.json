@@ -26,7 +26,7 @@
     "proxyInfo": "redis://127.0.0.1:6379/3"
   },
   "elasticSearch": {
-    "host": "sindex",
+    "host": "54.223.104.125:9200",
     "index": "sindex",
     "type": "page",
     "logLevel": "info"
