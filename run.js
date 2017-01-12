@@ -99,11 +99,12 @@ var proxyService = function () {
 ////config service////////////////////////////////////////////////////////////
 var configService = function () {
   var logger = log4js.getLogger(`config-service${options['i']}`);
-  settings['logger'] = logger;
-  settings['port'] = parseInt(options['p']);
-  var webConfig = new (require('./webconfig'))(settings);
+  // settings['logger'] = logger;
+  // settings['port'] = parseInt(options['p']);
+  require('./webconfig/app');
+  // var webConfig = new (require('./webconfig/app'))(settings);
 
-  webConfig.start();
+  // webConfig.start();
 }
 ////scheduler///////////////////////////////////////////////////////////////
 var schedule = function () {
@@ -127,6 +128,10 @@ var testUrl = function () {
   }
 }
 
+const load = () => {
+  require('./tool').load(settings);
+};
+
 ////route/////////////////////////////////////////////////////////////////////
 switch (options['a']) {
   case 'crawl':
@@ -143,6 +148,9 @@ switch (options['a']) {
     break;
   case 'test':
     testUrl();
+    break;
+  case 'load':
+    load();
     break;
   default:
     userArgv.showHelp();

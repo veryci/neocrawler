@@ -9,7 +9,7 @@
     "schedule_quantity_limitation": 200,
     "check_driller_rules_interval": 120,
     "download_retry": 2,
-    "log_level": "DEBUG",
+    "log_level": "WARNNING",
     "use_ssdb": false,
     "to_much_fail_exit": false,
     "save_content_to_hbase": false,
