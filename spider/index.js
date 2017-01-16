@@ -72,10 +72,19 @@ spiderCore.prototype.start = function () {
               spiderCore.spider_extend.extract(extracted_info, function (new_extracted_info) {
                 extracted_info = new_extracted_info;
                 callback();
-                crawled_info.page.close();
-                crawled_info.phantom.exit();
               });//spider extend
-            } else callback();
+            } else {
+              callback();
+            }
+          },
+          function(callback){
+            if ('page' in crawled_info) {
+              crawled_info.page.close();
+            }
+            if ('phantom' in crawled_info) {
+              crawled_info.phantom.exit();
+            }
+            callback();
           },
           function (callback) {
             spiderCore.pipeline.save(extracted_info, callback);
