@@ -68,7 +68,7 @@ exports.load = (settings) => {
         "index": 1
       };
       const _html = rules.html;
-      if(_html){
+      if(_html && !rules.content){
         rules.content = Object.assign({}, _html);
         rules.content.pick = 'text';
       }
@@ -76,7 +76,7 @@ exports.load = (settings) => {
         rules.pic = Object.assign({}, _html);
         rules.pic.expression = _html.expression + ' img';
         rules.pic.pick = '@src';
-        rules.pic.index = 1;
+        rules.pic.index = -1;
       }
     }
     const name = `driller:${instance}:${jsonobj.domain}:${jsonobj.alias}`;
