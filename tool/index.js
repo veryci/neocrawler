@@ -44,13 +44,15 @@ exports.load = (settings) => {
     jsonobj.instance = instance;
     if(jsonobj.type === 'node'){
       const rules = jsonobj.extract_rule.rule;
-      rules.title = {
-        "base": "content",
-        "mode": "css",
-        "expression": "title",
-        "pick": "text",
-        "index": 1
-      };
+      if(!rules.title){
+        rules.title = {
+          "base": "content",
+          "mode": "css",
+          "expression": "title",
+          "pick": "text",
+          "index": 1
+        };
+      }
       rules.keywords = {
         "base": "content",
         "mode": "css",
@@ -68,7 +70,6 @@ exports.load = (settings) => {
       const _html = rules.html;
       if(_html){
         rules.content = Object.assign({}, _html);
-        rules.content.expression = _html.expression + ' *:(script)';
         rules.content.pick = 'text';
       }
       if(_html && !rules.pic){
