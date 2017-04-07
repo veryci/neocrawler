@@ -1,3 +1,4 @@
+
 /**
  * Created by james on 13-11-22.
  * pipeline middleware
@@ -13,11 +14,16 @@ var querystring = require('querystring');
 var util = require('util');
 var poolModule = require('generic-pool');
 require('../lib/jsextend.js');
-
+const Redis = require('../webconfig/lib/redis');
 var pipeline = function(spiderCore){
     this.spiderCore = spiderCore;
     logger = spiderCore.settings.logger;
 }
+var cache = require('lru-cache')({
+    max : 10000,                   // The maximum number of items allowed in the cache
+    max_age : 1000 * 60 * 60     // The maximum life of a cached item in milliseconds
+})
+
 
 ////report to spidercore standby////////////////////////
 pipeline.prototype.assembly = function(callback){
@@ -53,9 +59,9 @@ pipeline.prototype.assembly = function(callback){
 //         }
 //     }
 
-  this.drillerInfoRedis = spiderCore.spider.drillerInfoRedis;
-  this.urlInfoRedis = spiderCore.spider.urlInfoRedis;
-  this.reportInfoRedis = spiderCore.spider.reportInfoRedis;
+    this.drillerInfoRedis = spiderCore.spider.drillerInfoRedis;
+    this.urlInfoRedis = spiderCore.spider.urlInfoRedis;
+    this.reportInfoRedis = spiderCore.spider.reportInfoRedis;
     if(callback)callback(null,'done');
 }
 /**
@@ -81,7 +87,7 @@ pipeline.prototype.save_links = function(page_url,version,linkobjs,drill_relatio
             var domain = t_alias_arr[3];
             if(!spiderCore.spider.driller_rules[domain]||!spiderCore.spider.driller_rules[domain][drill_alias]){
                 logger.error(alias+' not in configuration');
-                cb(new Error('Drill rule not found'));
+                cb(new Error('Drill rule not found'),true);
             }
             var t_driller_rules = spiderCore.spider.driller_rules[domain][drill_alias];
             if(typeof(t_driller_rules)!='object')t_driller_rules = JSON.parse(t_driller_rules);
@@ -209,7 +215,7 @@ pipeline.prototype.save_links = function(page_url,version,linkobjs,drill_relatio
                 },
                 function (err) {
                     index++;
-                    cb(err);
+                    cb(err,true);
                 }
             );
             ///////////////////////////////////////////////////////////////////
@@ -390,9 +396,10 @@ pipeline.prototype.save_content_vhttp = function(pageurl,content,extracted_data,
  * @param extracted_info
  */
 pipeline.prototype.save =function(extracted_info,callback){
+    var fs = require('fs')
     var pipeline = this;
+    var spiderCore = this.spiderCore;
     if(this.spiderCore.settings['test']){
-        var fs = require('fs');
         var path = require('path');
         if(extracted_info['origin']['format']=='binary'){
             var dumpfile = path.join(__dirname,'..', 'instance',this.spiderCore.settings['instance'],'logs','dumpfile.jpg');
@@ -423,38 +430,110 @@ pipeline.prototype.save =function(extracted_info,callback){
             });
         }
     }else{
-        async.series([
+        async.waterfall([
                 function(cb){
                     if(extracted_info['drill_link'])pipeline.save_links(extracted_info['url'],extracted_info['origin']['version'],extracted_info['drill_link'],extracted_info['drill_relation'],cb);
-                    else cb(null);
+                    else cb(null,true);
                 },
-                // function(cb){
-                //     if(pipeline.spiderCore.settings['save_content_to_hbase']===true&&extracted_info['origin']['type']=='node'){//type must be node
-                //         if(extracted_info['origin']['format']=='binary'){
-                //             pipeline.save_binary(extracted_info['url'],extracted_info['content'],extracted_info['origin']['referer'],extracted_info['origin']['urllib'],extracted_info['drill_relation'],cb);
-                //         }else{
-                //             var html_content = extracted_info['content'];
-                //             if(!extracted_info['origin']['save_page'])html_content = false;
-                //             pipeline.save_content(
-                //                 extracted_info['url'],
-                //                 html_content,
-                //                 extracted_info['extracted_data'],
-                //                 extracted_info['js_result'],
-                //                 extracted_info['origin']['referer'],
-                //                 extracted_info['origin']['urllib'],
-                //                 extracted_info['drill_relation'],
-                //                 function(s_err){
-					       //          if(!s_err && 'save_content_alert' in pipeline.spiderCore.spider_extend)pipeline.spiderCore.spider_extend.save_content_alert(extracted_info);//report
-					       //          cb(s_err);
-				         //    });
-                //         }
-                //     }else cb(null);
-                // },
-                function(cb){
+                 //function(cb){
+                 //    if(pipeline.spiderCore.settings['save_content_to_hbase']===true&&extracted_info['origin']['type']=='node'){//type must be node
+                 //        if(extracted_info['origin']['format']=='binary'){
+                 //            pipeline.save_binary(extracted_info['url'],extracted_info['content'],extracted_info['origin']['referer'],extracted_info['origin']['urllib'],extracted_info['drill_relation'],cb);
+                 //        }else{
+                 //            var html_content = extracted_info['content'];
+                 //            if(!extracted_info['origin']['save_page'])html_content = false;
+                 //            pipeline.save_content(
+                 //                extracted_info['url'],
+                 //                html_content,
+                 //                extracted_info['extracted_data'],
+                 //                extracted_info['js_result'],
+                 //                extracted_info['origin']['referer'],
+                 //                extracted_info['origin']['urllib'],
+                 //                extracted_info['drill_relation'],
+                 //                function(s_err){
+                 //         if(!s_err && 'save_content_alert' in pipeline.spiderCore.spider_extend)pipeline.spiderCore.spider_extend.save_content_alert(extracted_info);//report
+                 //         cb(s_err);
+                 //   });
+                 //        }
+                 //    }else cb(null);
+                 //},
+                function(flog,cb){
+                    if(extracted_info['extracted_data']) {
+                        var pics = extracted_info['extracted_data']['pic'];
+                        var imgs = extracted_info['extracted_data']['img'];
+                        if(Object.prototype.toString.call(pics) == '[object String]' || Object.prototype.toString.call(imgs) == '[object String]'){
+                            var pic = [];
+                            if(pics && Object.prototype.toString.call(pics) == '[object String]'){
+                                pic.push(pics)
+                            }else if(imgs && Object.prototype.toString.call(imgs) == '[object String]'){
+                                pic.push(imgs);
+                            }
+                        }else if(Object.prototype.toString.call(pics) == '[object Array]' ){
+                            var pic = pics.length ? pics : imgs;
+                        }else if(Object.prototype.toString.call(pics) == '[object Array]'){
+                            var pic = imgs.length ? imgs : pics;
+                        }else {
+                            pic=[]
+                        }
+
+
+                        var instance = spiderCore['settings']['instance'];
+                        var redisName = "driller:imgs:" + instance;
+                        if (pic && Object.prototype.toString.call(pic) == '[object Array]') {
+                            var maxImgNum = 10;
+                            var newPic = [];
+                            for (var j=0;j<pic.length;j++){
+                                var cashdata = cache.get(pic[j])
+                                if(cashdata && cashdata<maxImgNum){
+                                    newPic.push(pic[j]);
+                                }else if(!cashdata){
+                                    newPic.push(pic[j]);
+                                }
+                            }
+                            pic = newPic;
+                            if(pic.length) {
+                                var i = 0;
+                                async.whilst(
+                                    function () {
+                                        return i < pic.length
+                                    },
+                                    function (mcb) {
+                                        var img = pic[i];
+                                        Redis.drillerInfoRedis.hincrby(redisName, img, 1, function (err, res) {
+                                            if (err)throw err;
+                                            i++;
+                                            cache.set(img,parseInt(res));
+                                            //fs.writeFileSync(filename, JSON.stringify(data))
+                                            mcb()
+                                        })
+                                    },
+                                    function (err) {
+                                        if (err) {
+                                            cb(err, false)
+                                        }
+                                    }
+                                )
+                            }
+                            cb(null,pic);
+                        } else {
+                            cb(null, false);
+                        }
+                    }else{
+                        cb(null, false);
+                    }
+                },
+                function(res,cb){
+
+                    if(res){
+                        extracted_info['extracted_data']['pic'] = res;
+                        extracted_info['extracted_data']['img'] = res;
+                    }
+
                     if('pipeline' in pipeline.spiderCore.spider_extend)pipeline.spiderCore.spider_extend.pipeline(extracted_info,cb);//spider extend
                     else cb(null);
+
                 }
-             ],
+            ],
             function(err, results){
                 logger.info(extracted_info['url']+', pipeline completed');
                 callback(err);
