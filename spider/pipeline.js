@@ -14,7 +14,6 @@ var querystring = require('querystring');
 var util = require('util');
 var poolModule = require('generic-pool');
 require('../lib/jsextend.js');
-const Redis = require('../webconfig/lib/redis');
 var pipeline = function(spiderCore){
     this.spiderCore = spiderCore;
     logger = spiderCore.settings.logger;
@@ -396,7 +395,6 @@ pipeline.prototype.save_content_vhttp = function(pageurl,content,extracted_data,
  * @param extracted_info
  */
 pipeline.prototype.save =function(extracted_info,callback){
-    var fs = require('fs')
     var pipeline = this;
     var spiderCore = this.spiderCore;
     if(this.spiderCore.settings['test']){
@@ -499,7 +497,7 @@ pipeline.prototype.save =function(extracted_info,callback){
                                     },
                                     function (mcb) {
                                         var img = pic[i];
-                                        Redis.drillerInfoRedis.hincrby(redisName, img, 1, function (err, res) {
+                                        this.drillerInfoRedis.hincrby(redisName, img, 1, function (err, res) {
                                             if (err)throw err;
                                             i++;
                                             cache.set(img,parseInt(res));
